@@ -2,15 +2,15 @@ import asyncio
 import os
 import time
 from typing import Optional
-# import aioredis
+import aioredis
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-# from fastapi_cache import FastAPICache
-# from fastapi_cache.backends.redis import RedisBackend
-# from fastapi_cache.decorator import cache
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
 from helper.is_site_available import check_if_site_available
 
 load_dotenv()
@@ -26,15 +26,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# CACHE_EXPIRATION = (
-#     int(os.getenv("CACHE_EXPIRATION", 180))
-#     if os.getenv("PYTHON_ENV", "dev") == "prod"
-#     else 30
-# )
+CACHE_EXPIRATION = (
+    int(os.getenv("CACHE_EXPIRATION", 180))
+    if os.getenv("PYTHON_ENV", "dev") == "prod"
+    else 30
+)
 
 
 @app.get("/api/v1/search")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def call_api(
     site: str, query: str, limit: Optional[int] = 0, page: Optional[int] = 1
 ):
@@ -48,7 +48,7 @@ async def call_api(
     )
     if all_sites:
         resp = await all_sites[site]["website"]().search(query, page, limit)
-        if resp == None:
+        if resp is None:
             return {"error": "website blocked change ip or domain"}
         elif len(resp["data"]) > 0:
             return resp
@@ -64,7 +64,7 @@ async def get_torrent_from_url(
     all_sites = check_if_site_available(site)
     if all_sites:
         resp = await all_sites[site]["website"]().get_torrent_by_url(url)
-        if resp == None:
+        if resp is None:
             return {"error": "website blocked change ip or domain"}
         elif len(resp["data"]) > 0:
             return resp
@@ -74,7 +74,7 @@ async def get_torrent_from_url(
 
 
 @app.get("/api/v1/trending")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def get_trending(
     site: str,
     limit: Optional[int] = 0,
@@ -105,10 +105,9 @@ async def get_trending(
             resp = await all_sites[site]["website"]().trending(category, page, limit)
             if not resp:
                 return {"error": "website blocked change ip or domain"}
-            elif len(resp["data"]) > 0:
+            if len(resp["data"]) > 0:
                 return resp
-            else:
-                return {"error": "no results found"}
+            return {"error": "no results found"}
 
         else:
             return {"error": "trending search not availabe for {}".format(site)}
@@ -116,7 +115,7 @@ async def get_trending(
 
 
 @app.get("/api/v1/category")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def get_category(
     site: str,
     query: str,
@@ -144,7 +143,7 @@ async def get_category(
             resp = await all_sites[site]["website"]().search_by_category(
                 query, category, page, limit
             )
-            if resp == None:
+            if resp is None:
                 return {"error": "website blocked change ip or domain"}
             elif len(resp["data"]) > 0:
                 return resp
@@ -156,7 +155,7 @@ async def get_category(
 
 
 @app.get("/api/v1/recent")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def get_recent(
     site: str,
     limit: Optional[int] = 0,
@@ -187,10 +186,9 @@ async def get_recent(
             resp = await all_sites[site]["website"]().recent(category, page, limit)
             if not resp:
                 return {"error": "website blocked change ip or domain"}
-            elif len(resp["data"]) > 0:
+            if len(resp["data"]) > 0:
                 return resp
-            else:
-                return {"error": "no results found"}
+            return {"error": "no results found"}
         else:
             return {"error": "recent search not available for {}".format(site)}
     else:
@@ -236,7 +234,7 @@ async def get_search_combo(query: str, limit: Optional[int] = 0):
 
 
 @app.get("/api/v1/all/trending")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def get_all_trending(limit: Optional[int] = 0):
     start_time = time.time()
     # just getting all_sites dictionary
@@ -274,7 +272,7 @@ async def get_all_trending(limit: Optional[int] = 0):
 
 
 @app.get("/api/v1/all/recent")
-# @cache(expire=CACHE_EXPIRATION)
+@cache(expire=CACHE_EXPIRATION)
 async def get_all_recent(limit: Optional[int] = 0):
     start_time = time.time()
     # just getting all_sites dictionary
@@ -320,15 +318,15 @@ async def get_all_supported_sites():
     ]
     return {"supported_sites": sites_list}
 
-# @app.on_event("startup")
-# async def startup():
-#     PYTHON_ENV = os.getenv("PYTHON_ENV", "dev")
-#     if PYTHON_ENV == "prod":
-#         HOST = os.getenv("REDIS_URI", "redis://localhost")
-#     else:
-#         HOST = "redis://localhost"
-#     redis = aioredis.from_url(HOST, encoding="utf8", decode_responses=True)
-#     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+@app.on_event("startup")
+async def startup():
+    PYTHON_ENV = os.getenv("PYTHON_ENV", "dev")
+    if PYTHON_ENV == "prod":
+        HOST = os.getenv("REDIS_URI", "redis://localhost")
+    else:
+        HOST = "redis://localhost"
+    redis = aioredis.from_url(HOST, encoding="utf8", decode_responses=True)
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
 
 if __name__ == "__main__":
